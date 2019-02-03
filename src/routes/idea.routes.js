@@ -2,10 +2,9 @@
 
 const express = require('express');
 const router = new express.Router();
-const passport = require('passport');
 const chalk = require('chalk');
 
-const IDEA = require('../controllers/entry.controller');
+const IDEA = require('../controllers/idea.controller');
 
 // NEW IDEA
 router.post(
@@ -15,7 +14,7 @@ router.post(
 // GET ALL ENTRIES
 router.get(
   '/',
-  IDEA.getAllEntries
+  IDEA.getAllIdeas
 );
 // GET IDEA BY ID
 router.get(

@@ -4,17 +4,13 @@ const express = require('express');
 const port = process.env.PORT || 3001;
 const bodyParser = require('body-parser');
 const http = require('http');
-const https = require('https');
 const cors = require('cors');
-const passport = require('passport');
 const session = require('express-session');
 const MongoStore = require('connect-mongo')(session);
 const chalk = require('chalk');
 
 const db = require('./src/db');
 const app = express();
-
-app.use(passport.initialize());
 
 // CORS Setup
 if (process.env.USE_CORS === 'true') {
@@ -62,11 +58,8 @@ app.use(session({
 }))
 
 // Routes
-const entryRoutes = require('./src/routes/entry.routes');
-app.use('/entries', entryRoutes);
-
-const authRoutes = require('./src/routes/auth.routes');
-app.use('/auth', authRoutes);
+const ideaRoutes = require('./src/routes/idea.routes');
+app.use('/ideas', ideaRoutes);
 
 // Listen
 let server = http.createServer(app);
