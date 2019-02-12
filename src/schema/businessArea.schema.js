@@ -3,10 +3,10 @@
 const mongoose = require('mongoose');
 
 let businessAreaSchema = new mongoose.Schema({
-  businessAreaID: Number,
-  businessAreaName: String
+  name: String
 }, {
-  collection: 'businessAreas'
+  collection: 'business-areas'
 });
 
-module.exports = mongoose.model('BusinessArea', businessAreaSchema);
+exports.Schema = businessAreaSchema;
+exports.Model = mongoose.model('BusinessArea', businessAreaSchema);

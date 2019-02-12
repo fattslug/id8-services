@@ -1,12 +1,13 @@
 'use strict';
 
 const mongoose = require('mongoose');
+const BusinessArea = require('./businessArea.schema');
 
 let ideaSchema = new mongoose.Schema({
   title: String,
-  description: String,
-  businessAreaID: Number,
-  businessAreaName: String,
+  businessAreas: [BusinessArea.Schema],
+  problemDescription: String,
+  solutionDescription: String,
   dateSubmitted: Date,
   dateEdited: Date,
   deleted: Boolean
