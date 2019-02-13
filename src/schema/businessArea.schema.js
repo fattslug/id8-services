@@ -3,7 +3,8 @@
 const mongoose = require('mongoose');
 
 let businessAreaSchema = new mongoose.Schema({
-  name: String
+  name: String,
+  deleted: Boolean
 }, {
   collection: 'business-areas'
 });

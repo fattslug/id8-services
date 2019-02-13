@@ -22,16 +22,12 @@ function addIdea(req, res) {
 
   try {
     idea.save();
-    res.status(200).send({
-      success: true,
-      body: idea
-    });
+    return res.status(200).send(idea);
   } catch (e) {
     console.log(chalk.red(e));
-    res.status(500).send({
-      success: false,
+    return res.status(500).send({
       message: 'Failed to save idea'
-    })
+    });
   }
 }
 
@@ -46,26 +42,15 @@ function getAllIdeas(req, res) {
   console.log(chalk.black.bgBlue('Getting All Ideas...'));
 
   try {
-    Idea.find({ Deleted: { $ne: true } }).exec((err, ideas) => {
+    Idea.find({ deleted: { $ne: true } }).exec((err, ideas) => {
       if (err) { throw(err); }
-      res.status(200).send({
-        success: true,
-        body: {
-          totalAmount: ideas.reduce((acc, curr) => {
-            return acc + curr.AmountPaid;
-          }, 0),
-          ideas: ideas.sort((a, b) => {
-            return new Date(b.DateAdded) - new Date(a.DateAdded);
-          })
-        }
-      })
+      return res.status(200).send(ideas);
     })
   } catch (e) {
     console.log(chalk.red(e));
-    res.status(500).send({
-      success: false,
+    return res.status(500).send({
       message: 'Failed to get all ideas'
-    })
+    });
   }
 }
 

@@ -60,6 +60,8 @@ app.use(session({
 // Routes
 const ideaRoutes = require('./src/routes/idea.routes');
 app.use('/ideas', ideaRoutes);
+const businessAreaRoutes = require('./src/routes/businessArea.routes');
+app.use('/businessareas', businessAreaRoutes);
 
 // Listen
 let server = http.createServer(app);
