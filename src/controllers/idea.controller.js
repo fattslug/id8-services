@@ -18,6 +18,7 @@ function addIdea(req, res) {
   console.log(chalk.black.bgBlue('Adding Idea...'));
 
   const idea = new Idea(req.body.idea);
+  idea.dateSubmitted = new Date();
   console.log(idea);
 
   try {
