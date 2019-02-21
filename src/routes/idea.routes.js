@@ -14,7 +14,7 @@ router.post(
 // GET ALL ENTRIES
 router.get(
   '/',
-  IDEA.getAllIdeas
+  IDEA.getIdeas
 );
 // GET IDEA BY ID
 router.get(

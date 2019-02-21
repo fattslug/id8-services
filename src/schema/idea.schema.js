@@ -6,10 +6,11 @@ const BusinessArea = require('./businessArea.schema');
 let ideaSchema = new mongoose.Schema({
   title: String,
   businessAreas: [BusinessArea.Schema],
-  problemDescription: String,
-  solutionDescription: String,
+  description: String,
   dateSubmitted: Date,
   dateEdited: Date,
+  color: String,
+  icon: String,
   deleted: Boolean
 }, {
   collection: 'ideas'

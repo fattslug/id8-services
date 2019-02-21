@@ -2,7 +2,7 @@ const Idea = require('../schema/idea.schema');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
-exports.getAllIdeas = getAllIdeas;
+exports.getIdeas = getIdeas;
 exports.getIdeaByID = getIdeaByID;
 exports.updateIdeaByID = updateIdeaByID;
 exports.deleteIdeaByID = deleteIdeaByID;
@@ -37,9 +37,10 @@ function addIdea(req, res) {
  * @param {object} res Response object
  * @returns {object} HTTP response
  */
-function getAllIdeas(req, res) {
+function getIdeas(req, res) {
   console.log('GET', chalk.blue('/ideas/'));
-  console.log(chalk.black.bgBlue('Getting All Ideas...'));
+  console.log(chalk.black.bgBlue('Getting Ideas...'));
+  console.log('Query:', req.query);
 
   try {
     Idea.find({ deleted: { $ne: true } }).exec((err, ideas) => {
@@ -63,7 +64,7 @@ function getAllIdeas(req, res) {
 function getIdeaByID(req, res) {
   const ideaID = req.params.ideaID;
   console.log('GET', chalk.blue('/ideas/'), ideaID);
-  console.log(chalk.black.bgBlue('Getting All Ideas...'));
+  console.log(chalk.black.bgBlue('Getting Idea...'));
 
   try {
     Idea.findById(ideaID).exec((err, idea) => {
@@ -71,17 +72,11 @@ function getIdeaByID(req, res) {
       if (idea.deleted) {
         throw(true);
       }
-      res.status(200).send({
-        success: true,
-        body: {
-          idea: idea
-        }
-      });
+      res.status(200).send(idea);
     })
   } catch (e) {
     console.log(chalk.red(e));
     res.status(500).send({
-      success: false,
       message: 'Failed to get idea'
     })
   }
@@ -96,7 +91,7 @@ function getIdeaByID(req, res) {
 function updateIdeaByID(req, res) {
   const ideaID = req.params.ideaID;
   const updates = req.body.idea;
-  updates.dateEdited = new Date();
+  const dateEdited = new Date();
   console.log('UPDATE', chalk.blue('/ideas/'), ideaID);
   console.log(chalk.black.bgBlue('Updating Idea...'));
 
@@ -104,22 +99,17 @@ function updateIdeaByID(req, res) {
     Idea.findByIdAndUpdate(ideaID, {
       title: updates.title,
       description: updates.description,
-      businessAreaID: updates.businessAreaID,
-      businessAreaName: updates.businessAreaName,
-      dateEdited: updates.dateEdited,
+      businessAreas: updates.businessAreas,
+      icon: updates.icon,
+      color: updates.color,
+      dateEdited: dateEdited
     }, { new: true }).exec((err, newIdea) => {
       if (err) { throw(err); }
-      res.status(200).send({
-        success: true,
-        body: {
-          idea: newIdea
-        }
-      })
+      res.status(200).send(newIdea)
     })
   } catch (e) {
     console.log(chalk.red(e));
     res.status(500).send({
-      success: false,
       message: 'Failed to update idea'
     })
   }
