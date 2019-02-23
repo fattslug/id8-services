@@ -1,7 +1,7 @@
 const ActiveDirectory = require('activedirectory');
 const chalk = require('chalk');
 const auth = require('basic-auth');
-const User = require('../schema/user.schema');
+const User = require('../schema/user.schema').Model;
 
 /**
  * * login(req, res)

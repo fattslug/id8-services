@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const BusinessArea = require('./businessArea.schema');
+const User = require('./user.schema');
 
 let ideaSchema = new mongoose.Schema({
   title: String,
@@ -11,6 +12,7 @@ let ideaSchema = new mongoose.Schema({
   dateEdited: Date,
   color: String,
   icon: String,
+  author: User.Schema,
   deleted: Boolean
 }, {
   collection: 'ideas'
