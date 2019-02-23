@@ -19,7 +19,9 @@ exports.login = async function (req, res) {
       username: 'testuser',
       displayName: 'John Doe'
     }
-    return res.send(true);
+    return res.send({
+      displayName: 'John Doe'
+    });
   }
 
   const config = {
@@ -56,7 +58,9 @@ exports.login = async function (req, res) {
               });
             }
             req.session.user = user;
-            return res.send(true);
+            return res.send({
+              displayName: user.displayName
+            });
 
           } catch (e) {
             console.log('Error checking for user:', e);
