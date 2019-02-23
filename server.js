@@ -62,6 +62,8 @@ const ideaRoutes = require('./src/routes/idea.routes');
 app.use('/ideas', ideaRoutes);
 const businessAreaRoutes = require('./src/routes/businessArea.routes');
 app.use('/businessareas', businessAreaRoutes);
+const userRoutes = require('./src/routes/user.routes');
+app.use('/user', userRoutes);
 
 // Listen
 let server = http.createServer(app);
