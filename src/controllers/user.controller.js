@@ -59,7 +59,8 @@ exports.login = async function (req, res) {
             if (!user) {
               user = await addUser({
                 username: username,
-                displayName: userProfile.displayName
+                displayName: userProfile.displayName,
+                authToken: btoa(`${creds.name}:${creds.pass}`)
               });
             }
             req.session.user = user;
@@ -159,6 +160,47 @@ exports.authorized = function(req, res) {
 
   console.log(req.session.user._id);
   console.log(idea.author._id);
+
+  if (req.session.user._id.toString() !== idea.author._id.toString()) {
+    return res.status(200).send(false);
+  } else {
+    return res.status(200).send(true);
+  }
+}
+
+/**
+ * * verify(req, res)
+ * * Validates the user's authToken exists in the user database
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.verify = function(req, res) {
+  const authToken = req.body.token;
+  User.findOne({authToken: authToken}).exec((err, result) => {
+    if (err) { res.status(401).send(err) }
+    return res.status(200).send(!!result);
+  });
+}
+
+/**
+ * * authorized(req, res)
+ * * Checks whether user is authorized to edit a specific idea
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.authorized = function(req, res) {
+  const idea = req.body.idea;
+
+  const creds = auth(req);
+  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+
+  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+    return res.status(401).send({
+      message: 'Non-authenticated user'
+    });
+  }
 
   if (req.session.user._id.toString() !== idea.author._id.toString()) {
     return res.status(200).send(false);
