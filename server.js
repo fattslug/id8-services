@@ -17,6 +17,7 @@ if (process.env.USE_CORS === 'true') {
   const allowedOrigins = process.env.ALLOWED_ORIGINS;
   const corsOptions = {
     origin: '',
+    credentials: true,
     optionsSuccessStatus: 200
   }
 

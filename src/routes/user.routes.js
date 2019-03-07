@@ -11,6 +11,16 @@ router.post(
   '/login',
   USER.login
 );
+// VERIFY USER
+router.post(
+  '/verify',
+  USER.verify
+);
+// IS USER AUTHORIZED
+router.post(
+  '/authorized',
+  USER.authorized
+);
 // LOG USER OUT
 router.get(
   '/logout',

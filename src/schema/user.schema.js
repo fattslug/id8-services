@@ -3,9 +3,10 @@
 const mongoose = require('mongoose');
 
 let userSchema = new mongoose.Schema({
-    username: String,
-    displayName: String,
-    role: String
+  username: String,
+  displayName: String,
+  role: String,
+  authToken: String
 }, {
   collection: 'users'
 });

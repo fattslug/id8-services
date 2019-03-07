@@ -1,6 +1,7 @@
 const ActiveDirectory = require('activedirectory');
 const chalk = require('chalk');
 const auth = require('basic-auth');
+const btoa = require('btoa');
 const User = require('../schema/user.schema').Model;
 
 /**
@@ -16,12 +17,11 @@ exports.login = async function (req, res) {
 
   if (process.env.USE_AUTHENTICATION === 'false') {
     req.session.user = {
+      _id: 1,
       username: 'testuser',
       displayName: 'John Doe'
     }
-    return res.send({
-      displayName: 'John Doe'
-    });
+    return res.send(req.session.user);
   }
 
   const config = {
@@ -54,13 +54,12 @@ exports.login = async function (req, res) {
             if (!user) {
               user = await addUser({
                 username: username,
-                displayName: userProfile.displayName
+                displayName: userProfile.displayName,
+                authToken: btoa(`${creds.name}:${creds.pass}`)
               });
             }
             req.session.user = user;
-            return res.send({
-              displayName: user.displayName
-            });
+            return res.send(user);
 
           } catch (e) {
             console.log('Error checking for user:', e);
@@ -74,9 +73,14 @@ exports.login = async function (req, res) {
   });
 };
 
-async function checkForUser(username) {
+async function checkForUser(username, userID = null) {
   return new Promise((resolve, reject) => {
-    User.find({ username: username }).exec((err, result) => {
+    const query = {};
+    query.username = username;
+    if (userID) {
+      query._id = userID;
+    }
+    User.findOne(query).exec((err, result) => {
       if (err) { reject(err) }
       return resolve(result);
     });
@@ -85,13 +89,53 @@ async function checkForUser(username) {
 
 async function addUser(user) {
   const newUser = new User(user);
-
   try {
     newUser.save();
     return newUser;
   } catch (e) {
     console.log('Error adding user:', e);
     return false;
+  }
+}
+
+/**
+ * * verify(req, res)
+ * * Validates the user's authToken exists in the user database
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.verify = function(req, res) {
+  const authToken = req.body.token;
+  User.findOne({authToken: authToken}).exec((err, result) => {
+    if (err) { res.status(401).send(err) }
+    return res.status(200).send(!!result);
+  });
+}
+
+/**
+ * * authorized(req, res)
+ * * Checks whether user is authorized to edit a specific idea
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.authorized = function(req, res) {
+  const idea = req.body.idea;
+
+  const creds = auth(req);
+  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+
+  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+    return res.status(401).send({
+      message: 'Non-authenticated user'
+    });
+  }
+
+  if (req.session.user._id.toString() !== idea.author._id.toString()) {
+    return res.status(200).send(false);
+  } else {
+    return res.status(200).send(true);
   }
 }
 
