@@ -59,8 +59,7 @@ exports.login = async function (req, res) {
             if (!user) {
               user = await addUser({
                 username: username,
-                displayName: userProfile.displayName,
-                authToken: btoa(`${creds.name}:${creds.pass}`)
+                displayName: userProfile.displayName
               });
             }
             req.session.user = user;
@@ -170,17 +169,26 @@ exports.authorized = function(req, res) {
 
 /**
  * * verify(req, res)
- * * Validates the user's authToken exists in the user database
+ * * Validates the user's session is valid and
+ * * that the user exists in the user database
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with success boolean
  */
 exports.verify = function(req, res) {
   const authToken = req.body.token;
-  User.findOne({authToken: authToken}).exec((err, result) => {
-    if (err) { res.status(401).send(err) }
-    return res.status(200).send(!!result);
-  });
+  if (req.session.user.authToken === authToken) {
+    console.log('Auth token valid!')
+    User.findById(req.session.user._id).exec((err, result) => {
+      if (err) { res.status(401).send(err) }
+      return res.status(200).send(!!result);
+    });
+  } else {
+    console.log(chalk.red('Auth token invalid!'));
+    return res.status(401).send({
+      message: 'Auth token invalid'
+    });
+  }
 }
 
 /**
@@ -194,13 +202,16 @@ exports.authorized = function(req, res) {
   const idea = req.body.idea;
 
   const creds = auth(req);
-  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
 
   if (!req.session.user || req.session.user.authToken !== encodedCreds) {
     return res.status(401).send({
       message: 'Non-authenticated user'
     });
   }
+
+  console.log(req.session.user._id);
+  console.log(idea.author._id);
 
   if (req.session.user._id.toString() !== idea.author._id.toString()) {
     return res.status(200).send(false);
