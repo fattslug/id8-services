@@ -10,7 +10,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "activedirectory": "^0.7.2",
+    "basic-auth": "^2.0.1",
     "body-parser": "^1.18.3",
+    "btoa": "^1.2.1",
     "chalk": "^2.4.2",
     "connect-mongo": "^2.0.3",
     "cors": "^2.8.5",

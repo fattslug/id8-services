@@ -1,4 +1,4 @@
-const BusinessArea = require('../schema/businessArea.schema');
+const BusinessArea = require('../schema/businessArea.schema').Model;
 const chalk = require('chalk');
 
 exports.addBusinessArea = addBusinessArea;
@@ -42,7 +42,7 @@ function getAllBusinessAreas(req, res) {
   console.log(chalk.black.bgBlue('Getting All BusinessAreas...'));
 
   try {
-    BusinessArea.Model.find({ deleted: { $ne: true } }).exec((err, businessAreas) => {
+    BusinessArea.find({ deleted: { $ne: true } }).exec((err, businessAreas) => {
       if (err) { throw(err); }
       res.status(200).send(businessAreas)
     })
