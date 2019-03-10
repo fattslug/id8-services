@@ -2,7 +2,12 @@ const ActiveDirectory = require('activedirectory');
 const chalk = require('chalk');
 const auth = require('basic-auth');
 const btoa = require('btoa');
+
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+
 const User = require('../schema/user.schema').Model;
+const ObjectID = require('mongodb').ObjectID;
 
 /**
  * * login(req, res)
@@ -17,10 +22,11 @@ exports.login = async function (req, res) {
 
   if (process.env.USE_AUTHENTICATION === 'false') {
     req.session.user = {
-      _id: 1,
+      _id: new ObjectID('5c84a8f313bdba182448c0ab'),
       username: 'testuser',
-      displayName: 'John Doe'
-    }
+      displayName: 'John Doe',
+      authToken: 'test'
+    };
     return res.send(req.session.user);
   }
 
@@ -54,8 +60,7 @@ exports.login = async function (req, res) {
             if (!user) {
               user = await addUser({
                 username: username,
-                displayName: userProfile.displayName,
-                authToken: btoa(`${creds.name}:${creds.pass}`)
+                displayName: userProfile.displayName
               });
             }
             req.session.user = user;
@@ -98,19 +103,40 @@ async function addUser(user) {
   }
 }
 
+function generateJWT() {
+  const today = new Date();
+  const expirationDate = new Date(today);
+  expirationDate.setDate(today.getDate() + 60);
+
+  return jwt.sign({
+    email: this.email,
+    id: this._id,
+    exp: parseInt(expirationDate.getTime() / 1000, 10),
+  }, process.env.AUTH_SECRET);
+}
+
 /**
  * * verify(req, res)
- * * Validates the user's authToken exists in the user database
+ * * Validates the user's session is valid and
+ * * that the user exists in the user database
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with success boolean
  */
 exports.verify = function(req, res) {
   const authToken = req.body.token;
-  User.findOne({authToken: authToken}).exec((err, result) => {
-    if (err) { res.status(401).send(err) }
-    return res.status(200).send(!!result);
-  });
+  if (req.session.user.authToken === authToken) {
+    console.log('Auth token valid!')
+    User.findById(req.session.user._id).exec((err, result) => {
+      if (err) { res.status(401).send(err) }
+      return res.status(200).send(!!result);
+    });
+  } else {
+    console.log(chalk.red('Auth token invalid!'));
+    return res.status(401).send({
+      message: 'Auth token invalid'
+    });
+  }
 }
 
 /**
@@ -124,13 +150,16 @@ exports.authorized = function(req, res) {
   const idea = req.body.idea;
 
   const creds = auth(req);
-  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
 
   if (!req.session.user || req.session.user.authToken !== encodedCreds) {
     return res.status(401).send({
       message: 'Non-authenticated user'
     });
   }
+
+  console.log(req.session.user._id);
+  console.log(idea.author._id);
 
   if (req.session.user._id.toString() !== idea.author._id.toString()) {
     return res.status(200).send(false);
