@@ -1,5 +1,8 @@
 const Idea = require('../schema/idea.schema');
 const filter = require('./filter.helper');
+const User = require('../schema/user.schema').Model;
+const auth = require('basic-auth');
+const btoa = require('btoa');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
@@ -18,19 +21,37 @@ function addIdea(req, res) {
   console.log(chalk.blue('/ideas/'));
   console.log(chalk.black.bgBlue('Adding Idea...'));
 
+  const creds = auth(req);
+  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+
+  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+    return res.status(401).send({
+      message: 'Non-authenticated user'
+    });
+  }
+
   const idea = new Idea(req.body.idea);
   idea.dateSubmitted = new Date();
-  console.log(idea);
+  idea.author = new User(req.session.user);
+
+  if (!idea.title || !idea.businessAreas || !idea.description
+  || !idea.icon || !idea.color || !idea.author) {
+    return res.status(400).send({
+      message: 'Invalid idea object'
+    });
+  }
 
   try {
     idea.save();
-    return res.status(200).send(idea);
+    console.log(idea);
+    return res.status(201).send(idea);
   } catch (e) {
     console.log(chalk.red(e));
     return res.status(500).send({
       message: 'Failed to save idea'
     });
   }
+
 }
 
 /**
@@ -47,9 +68,10 @@ function getIdeas(req, res) {
   const query = filter.buildQuery(req.query);
 
   try {
-    Idea.aggregate([{
-      $match: query
-    }]).exec((err, ideas) => {
+    Idea.aggregate([
+      { $match: query },
+      { $sort: { dateSubmitted: -1 } }
+    ]).exec((err, ideas) => {
       if (err) { throw(err); }
       return res.status(200).send(ideas);
     })
@@ -94,31 +116,56 @@ function getIdeaByID(req, res) {
  * @param {object} res Response object
  * @returns {object} HTTP response
  */
-function updateIdeaByID(req, res) {
+async function updateIdeaByID(req, res) {
   const ideaID = req.params.ideaID;
   const updates = req.body.idea;
   const dateEdited = new Date();
   console.log('UPDATE', chalk.blue('/ideas/'), ideaID);
   console.log(chalk.black.bgBlue('Updating Idea...'));
 
-  try {
-    Idea.findByIdAndUpdate(ideaID, {
-      title: updates.title,
-      description: updates.description,
-      businessAreas: updates.businessAreas,
-      icon: updates.icon,
-      color: updates.color,
-      dateEdited: dateEdited
-    }, { new: true }).exec((err, newIdea) => {
-      if (err) { throw(err); }
-      res.status(200).send(newIdea)
-    })
-  } catch (e) {
-    console.log(chalk.red(e));
-    res.status(500).send({
-      message: 'Failed to update idea'
-    })
+  const creds = auth(req);
+  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+  let author;
+
+  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+    return res.status(401).send({
+      message: 'Non-authenticated user'
+    });
   }
+
+  // Get author
+  // Validate that current user is author
+  Idea.findById(ideaID).exec((err, matchedIdea) => {
+    if (err) { throw(err); }
+
+    author = matchedIdea.author;
+    if (author._id.toString() !== req.session.user._id.toString()) {
+      return res.status(403).send({
+        message: 'User not authorized'
+      });
+    }
+
+    // Perform update
+    try {
+      Idea.findByIdAndUpdate(ideaID, {
+        title: updates.title,
+        description: updates.description,
+        businessAreas: updates.businessAreas,
+        icon: updates.icon,
+        color: updates.color,
+        dateEdited: dateEdited
+      }, { new: true }).exec((err, newIdea) => {
+        if (err) { throw(err); }
+        return res.status(200).send(newIdea)
+      })
+    } catch (e) {
+      console.log(chalk.red(e));
+      return res.status(500).send({
+        message: 'Failed to update idea'
+      })
+    }
+  });
+
 }
 
 /**
