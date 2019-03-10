@@ -19,7 +19,7 @@ router.post(
 // IS USER AUTHORIZED
 router.post(
   '/authorized',
-  USER.authorized
+  USER.isAuthor
 );
 // LOG USER OUT
 router.get(
