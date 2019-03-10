@@ -1,4 +1,5 @@
 const Idea = require('../schema/idea.schema');
+const filter = require('./filter.helper');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
@@ -43,8 +44,12 @@ function getIdeas(req, res) {
   console.log(chalk.black.bgBlue('Getting Ideas...'));
   console.log('Query:', req.query);
 
+  const query = filter.buildQuery(req.query);
+
   try {
-    Idea.find({ deleted: { $ne: true } }).exec((err, ideas) => {
+    Idea.aggregate([{
+      $match: query
+    }]).exec((err, ideas) => {
       if (err) { throw(err); }
       return res.status(200).send(ideas);
     })
