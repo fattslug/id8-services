@@ -17,11 +17,10 @@ function buildQuery(queryParams) {
       if (queryField === 'businessAreas') {
         query.$or = buildBusinessQuery(queryValue);
       }
-      if (queryField === 'quickDate') {
+      if (queryField === 'quickDate' && queryValue !== 'all') {
         const startDate = queryParams['startDate'] || null;
         const endDate = queryParams['endDate'] || null;
         query.dateSubmitted = buildDateQuery(queryValue, startDate, endDate);
-        console.log(query.dateSubmitted);
       }
 
     }
@@ -84,9 +83,6 @@ function buildDateQuery(quickDate, startDate, endDate) {
       startDate = new Date();
       endDate = new Date();
       startDate.setYear(startDate.getYear() - 1);
-    break;
-
-    case 'all':
     break;
 
     case 'custom':
