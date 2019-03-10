@@ -24,8 +24,7 @@ exports.login = async function (req, res) {
     req.session.user = {
       _id: new ObjectID('5c84a8f313bdba182448c0ab'),
       username: 'testuser',
-      displayName: 'John Doe',
-      authToken: 'test'
+      displayName: 'John Doe'
     };
     return res.send(req.session.user);
   }
