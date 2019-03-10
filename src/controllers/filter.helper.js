@@ -4,8 +4,7 @@ exports.buildQuery = buildQuery;
 
 /**
  * Builds the full idea query
- * @param {object} queryParams
- * All query params passed through from client query
+ * @param {object} queryParams All query params passed through from client query
  * @returns {object} Full query object to be used in aggregation pipeline
  */
 function buildQuery(queryParams) {
@@ -31,8 +30,7 @@ function buildQuery(queryParams) {
 
 /**
  * Builds the query which filters for business areas
- * @param {string} businessAreaString
- * Comma-delimited string of businessArea ObjectIDs
+ * @param {string} businessAreaString Comma-delimited string of businessArea ObjectIDs
  * @returns {array} Array of $or queries
  */
 function buildBusinessQuery(businessAreaString) {
@@ -54,9 +52,10 @@ function buildBusinessQuery(businessAreaString) {
 
 /**
  * Builds the query which filters for date submitted
- * @param {string} businessAreaString
- * Comma-delimited string of businessArea ObjectIDs
- * @returns {array} Array of $or queries
+ * @param {string} quickDate Quick-select text (past 24 hours, past month, etc)
+ * @param {date} startDate Optional start date (required for 'custom' quickDate)
+ * @param {date} endDate Optional end date(required for 'custom' quickDate)
+ * @returns {array} Greater than/less than range of dates
  */
 function buildDateQuery(quickDate, startDate, endDate) {
   switch (quickDate) {
