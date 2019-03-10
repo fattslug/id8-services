@@ -1,12 +1,17 @@
 const ActiveDirectory = require('activedirectory');
 const chalk = require('chalk');
 const auth = require('basic-auth');
-const btoa = require('btoa');
 
-const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
+// var privateKey = fs.readFileSync('C:\\Users\\e42229\\Development\\id8\\id8-services\\src\\private.key', 'utf8');
+var privateKey = fs.readFileSync(path.join(__dirname, '..', 'authentication', 'private.key'), 'utf8');
+var publicKey = fs.readFileSync(path.join(__dirname, '..', 'authentication', 'public.key'), 'utf8');
+
 const User = require('../schema/user.schema').Model;
+const Idea = require('../schema/idea.schema');
 const ObjectID = require('mongodb').ObjectID;
 
 /**
@@ -24,7 +29,8 @@ exports.login = async function (req, res) {
     req.session.user = {
       _id: new ObjectID('5c84a8f313bdba182448c0ab'),
       username: 'testuser',
-      displayName: 'John Doe'
+      displayName: 'John Doe',
+      authToken: generateJWT('testuser', new ObjectID('5c84a8f313bdba182448c0ab'))
     };
     return res.send(req.session.user);
   }
@@ -62,6 +68,8 @@ exports.login = async function (req, res) {
                 displayName: userProfile.displayName
               });
             }
+            
+            user.authToken = generateJWT(username, user._id);
             req.session.user = user;
             return res.send(user);
 
@@ -102,16 +110,23 @@ async function addUser(user) {
   }
 }
 
-function generateJWT() {
+function generateJWT(username, id) {
   const today = new Date();
   const expirationDate = new Date(today);
   expirationDate.setDate(today.getDate() + 60);
 
+  var signOptions = {
+    issuer: process.env.AUTH_TOKEN_ISSUER,
+    subject: username,
+    audience: process.env.AUTH_TOKEN_AUDIENCE,
+    algorithm: 'RS256'
+  };
+
   return jwt.sign({
-    email: this.email,
-    id: this._id,
+    username: username,
+    id: id,
     exp: parseInt(expirationDate.getTime() / 1000, 10),
-  }, process.env.AUTH_SECRET);
+  }, privateKey, signOptions);
 }
 
 /**
@@ -122,10 +137,9 @@ function generateJWT() {
  * @param {object} res Middleware response object
  * @return {void} responds with success boolean
  */
-exports.verify = function(req, res) {
+exports.verify = function (req, res) {
   const authToken = req.body.token;
   if (req.session.user.authToken === authToken) {
-    console.log('Auth token valid!')
     User.findById(req.session.user._id).exec((err, result) => {
       if (err) { res.status(401).send(err) }
       return res.status(200).send(!!result);
@@ -139,31 +153,27 @@ exports.verify = function(req, res) {
 }
 
 /**
- * * authorized(req, res)
+ * * isAuthor(req, res)
  * * Checks whether user is authorized to edit a specific idea
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with success boolean
  */
-exports.authorized = function(req, res) {
+exports.isAuthor = function (req, res) {
   const idea = req.body.idea;
+  const userSession = req.session.user;
+  const requestToken = req.headers.authorization.split(' ')[1];
 
-  const creds = auth(req);
-  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
-
-  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+  if (!userSession || userSession.authToken !== requestToken) {
     return res.status(401).send({
       message: 'Non-authenticated user'
     });
   }
 
-  console.log(req.session.user._id);
-  console.log(idea.author._id);
-
-  if (req.session.user._id.toString() !== idea.author._id.toString()) {
-    return res.status(200).send(false);
-  } else {
+  if (userSession._id.toString() === idea.author._id.toString()) {
     return res.status(200).send(true);
+  } else {
+    return res.status(200).send(false);
   }
 }
 
@@ -233,14 +243,35 @@ exports.logout = function (req, res) {
 };
 
 /**
- * * checkLogin(req, res)
+ * * isAuthenticated(req, res)
  * * Validates that server session exists for the requesting client
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with true if session exists
  */
-exports.checkLogin = function (req, res) {
-  console.log('Checking User Session...');
-  console.log(req.session.user);
-  res.send(req.session.user ? req.session.user : false);
+exports.isAuthenticated = function (req, res, next) {
+  const token = req.headers.authorization.split(' ')[1];
+  const userSession = req.session.user;
+
+  if (!userSession) {
+    return res.status(401).send({
+      message: 'No logged in user'
+    });
+  }
+
+  var verifyOptions = {
+    issuer: process.env.AUTH_TOKEN_ISSUER,
+    subject: userSession.username,
+    audience: process.env.AUTH_TOKEN_AUDIENCE,
+    algorithm: 'RS256'
+  };
+
+  const tokenData = jwt.verify(token, publicKey, verifyOptions);
+  if (userSession._id === tokenData.id) {
+    next();
+  } else {
+    res.status(401).send({
+      message: 'Invalid token'
+    })
+  }
 };
