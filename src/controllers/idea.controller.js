@@ -22,7 +22,7 @@ function addIdea(req, res) {
   console.log(chalk.black.bgBlue('Adding Idea...'));
 
   const creds = auth(req);
-  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
 
   if (!req.session.user || req.session.user.authToken !== encodedCreds) {
     return res.status(401).send({
@@ -124,7 +124,7 @@ async function updateIdeaByID(req, res) {
   console.log(chalk.black.bgBlue('Updating Idea...'));
 
   const creds = auth(req);
-  const encodedCreds = btoa(`${creds.name}:${creds.pass}`);
+  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
   let author;
 
   if (!req.session.user || req.session.user.authToken !== encodedCreds) {
