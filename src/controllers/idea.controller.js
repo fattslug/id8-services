@@ -1,8 +1,7 @@
 const Idea = require('../schema/idea.schema');
 const filter = require('./filter.helper');
 const User = require('../schema/user.schema').Model;
-const auth = require('basic-auth');
-const btoa = require('btoa');
+const filter = require('./filter.helper');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
@@ -58,6 +57,7 @@ function getIdeas(req, res) {
   console.log('Query:', req.query);
 
   const query = filter.buildQuery(req.query);
+  query.deleted = { $ne: true };
 
   try {
     Idea.aggregate([
