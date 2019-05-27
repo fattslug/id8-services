@@ -7,8 +7,8 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
 // var privateKey = fs.readFileSync('C:\\Users\\e42229\\Development\\id8\\id8-services\\src\\private.key', 'utf8');
-var privateKey = fs.readFileSync(path.join('..', 'authentication', 'private.key'), 'utf8');
-var publicKey = fs.readFileSync(path.join('..', 'authentication', 'public.key'), 'utf8');
+var privateKey = fs.readFileSync(path.join('..', 'id8-services', 'authentication', 'private.key'), 'utf8');
+var publicKey = fs.readFileSync(path.join('..', 'id8-services', 'authentication', 'public.key'), 'utf8');
 
 const User = require('../schema/user.schema').Model;
 const Idea = require('../schema/idea.schema');
@@ -217,32 +217,46 @@ exports.verify = function(req, res) {
 }
 
 /**
- * * authorized(req, res)
+ * * isAuthorized(req, res)
+ * * MIDDLEWARE
  * * Checks whether user is authorized to edit a specific idea
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with success boolean
  */
-exports.authorized = function(req, res) {
+exports.isAuthorized = function (req, res, next) {
   const idea = req.body.idea;
+  const ideaID = req.params.ideaID;
+  const userSession = req.session.user;
+  const requestToken = req.headers.authorization.split(' ')[1];
 
-  const creds = auth(req);
-  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
-
-  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
+  if (!userSession || userSession.authToken !== requestToken) {
     return res.status(401).send({
       message: 'Non-authenticated user'
     });
   }
 
-  console.log(req.session.user._id);
-  console.log(idea.author._id);
+  Idea.findById(ideaID).exec((err, result) => {
+    if (err) {
+      return res.status(500).send({
+        message: 'Invalid idea'
+      });
+    }
 
-  if (req.session.user._id.toString() !== idea.author._id.toString()) {
-    return res.status(200).send(false);
-  } else {
-    return res.status(200).send(true);
-  }
+    idea.author = result.author;
+    if (!idea || !idea.author || !idea.author._id) {
+      return res.status(500).send({
+        message: 'Invalid idea'
+      });
+    }
+    if (userSession._id.toString() === idea.author._id.toString()) {
+      next();
+    } else {
+      return res.status(401).send({
+        message: 'User not authorized'
+      });
+    }
+  });
 }
 
 /**

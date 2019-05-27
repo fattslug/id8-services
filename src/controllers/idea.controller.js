@@ -1,7 +1,6 @@
 const Idea = require('../schema/idea.schema');
 const filter = require('./filter.helper');
 const User = require('../schema/user.schema').Model;
-const filter = require('./filter.helper');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
