@@ -7,8 +7,8 @@ const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
 // var privateKey = fs.readFileSync('C:\\Users\\e42229\\Development\\id8\\id8-services\\src\\private.key', 'utf8');
-var privateKey = fs.readFileSync(path.join(__dirname, '..', 'authentication', 'private.key'), 'utf8');
-var publicKey = fs.readFileSync(path.join(__dirname, '..', 'authentication', 'public.key'), 'utf8');
+var privateKey = fs.readFileSync(path.join('..', 'authentication', 'private.key'), 'utf8');
+var publicKey = fs.readFileSync(path.join('..', 'authentication', 'public.key'), 'utf8');
 
 const User = require('../schema/user.schema').Model;
 const Idea = require('../schema/idea.schema');
@@ -37,7 +37,7 @@ exports.login = async function (req, res) {
 
   const config = {
     host: process.env.LDAP_HOST,
-    port: process.env.LDAP_POST,
+    port: process.env.LDAP_PORT,
     url: process.env.LDAP_URL,
     baseDN: process.env.LDAP_BASEDN,
     username: process.env.LDAP_USERNAME,
@@ -52,40 +52,55 @@ exports.login = async function (req, res) {
 
   const activeDirectory = new ActiveDirectory(config);
   activeDirectory.authenticate(username, password, async (err, result) => {
+    console.log('Authenticate result:', result);
     if (err) {
       console.log(chalk.black.bgRed('Error in authentication.'));
       return res.sendStatus(401);
-    } else {
-      if (result) {
-        activeDirectory.findUser(username, async (err, userProfile) => {
-          try {
-            console.log('Authentication successful!');
+    } else if (result) {
+      activeDirectory.findUser(username, async (err, userProfile) => {
+        if (err) {
+          console.log('Error logging in:', err);
+          return res.status(403).send({
+            message: 'Error logging in'
+          });
+        }
+        if (!userProfile) {
+          console.log('No user found!');
+          return res.status(403).send({
+            message: 'No user found in LDAP'
+          });
+        }
+        try {
+          console.log('Authentication successful!');
+          console.log('User profile:', userProfile);
 
-            let user = await checkForUser(username);
-            if (!user) {
-              user = await addUser({
-                username: username,
-                displayName: userProfile.displayName
-              });
-            }
-            
-            user.authToken = generateJWT(username, user._id);
-            req.session.user = user;
-            return res.send(user);
-
-          } catch (e) {
-            console.log('Error checking for user:', e);
-            res.status(500).send({
-              message: 'Error checking for user.'
-            })
+          let user = await checkForUser(username);
+          if (!user) {
+            console.log('User does not exist');
+            console.log('Adding user...');
+            user = await addUser({
+              username: username,
+              displayName: userProfile.displayName
+            });
           }
-        });
-      }
+          
+          user.authToken = generateJWT(username, user._id);
+          req.session.user = user;
+          return res.send(user);
+
+        } catch (e) {
+          console.log('Error checking for user in DB:', e);
+          res.status(500).send({
+            message: 'Error checking for user in DB.'
+          })
+        }
+      });
     }
   });
 };
 
 async function checkForUser(username, userID = null) {
+  console.log('Checking for user...');
   return new Promise((resolve, reject) => {
     const query = {};
     query.username = username;

@@ -3,6 +3,7 @@ const webpack = require('webpack');
 const fs = require('fs');
 const Dotenv = require('dotenv-webpack');
 const CreateFileWebpack = require('create-file-webpack');
+const CopyPlugin = require('copy-webpack-plugin');
 
 var nodeModules = {};
 fs.readdirSync('node_modules')
@@ -19,18 +20,21 @@ module.exports = {
 	mode: 'production',
 	target: 'node',
 	output: {
-		path: path.join(__dirname, 'dist'),
+		path: path.join(__dirname, '..', 'dist'),
 		filename: 'bundle.js'
 	},
 	plugins: [
 		new Dotenv({
-			path: './config/local.env'
+			path: path.join(__dirname, 'production.env')
 		}),
 		new CreateFileWebpack({
 			path: './dist/logs',
 			fileName: 'app-log.log',
 			content: '# App Log:'
-		})
+        }),
+        new CopyPlugin([
+            { from: 'authentication', to: 'authentication' }
+        ]),
 	],
 	module: {
 		rules: [
