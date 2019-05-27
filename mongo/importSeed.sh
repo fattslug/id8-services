@@ -1,0 +1,1 @@
+mongoimport -h localhost:27017 -d id8 -c business-areas --file business-areas.json --jsonArray

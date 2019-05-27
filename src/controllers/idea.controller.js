@@ -1,8 +1,7 @@
 const Idea = require('../schema/idea.schema');
 const filter = require('./filter.helper');
 const User = require('../schema/user.schema').Model;
-const auth = require('basic-auth');
-const btoa = require('btoa');
+const filter = require('./filter.helper');
 const chalk = require('chalk');
 
 exports.addIdea = addIdea;
@@ -21,18 +20,10 @@ function addIdea(req, res) {
   console.log(chalk.blue('/ideas/'));
   console.log(chalk.black.bgBlue('Adding Idea...'));
 
-  const creds = auth(req);
-  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
-
-  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
-    return res.status(401).send({
-      message: 'Non-authenticated user'
-    });
-  }
-
   const idea = new Idea(req.body.idea);
   idea.dateSubmitted = new Date();
   idea.author = new User(req.session.user);
+  console.log('Idea author:', idea.author);
 
   if (!idea.title || !idea.businessAreas || !idea.description
   || !idea.icon || !idea.color || !idea.author) {
@@ -66,6 +57,7 @@ function getIdeas(req, res) {
   console.log('Query:', req.query);
 
   const query = filter.buildQuery(req.query);
+  query.deleted = { $ne: true };
 
   try {
     Idea.aggregate([
@@ -123,15 +115,7 @@ async function updateIdeaByID(req, res) {
   console.log('UPDATE', chalk.blue('/ideas/'), ideaID);
   console.log(chalk.black.bgBlue('Updating Idea...'));
 
-  const creds = auth(req);
-  const encodedCreds = process.env.USE_AUTHENTICATION === 'true' ? btoa(`${creds.name}:${creds.pass}`) : 'test';
   let author;
-
-  if (!req.session.user || req.session.user.authToken !== encodedCreds) {
-    return res.status(401).send({
-      message: 'Non-authenticated user'
-    });
-  }
 
   // Get author
   // Validate that current user is author

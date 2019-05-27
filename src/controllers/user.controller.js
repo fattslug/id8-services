@@ -1,12 +1,17 @@
 const ActiveDirectory = require('activedirectory');
 const chalk = require('chalk');
 const auth = require('basic-auth');
-const btoa = require('btoa');
 
-const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 
+// var privateKey = fs.readFileSync('C:\\Users\\e42229\\Development\\id8\\id8-services\\src\\private.key', 'utf8');
+var privateKey = fs.readFileSync(path.join('..', 'authentication', 'private.key'), 'utf8');
+var publicKey = fs.readFileSync(path.join('..', 'authentication', 'public.key'), 'utf8');
+
 const User = require('../schema/user.schema').Model;
+const Idea = require('../schema/idea.schema');
 const ObjectID = require('mongodb').ObjectID;
 
 /**
@@ -24,14 +29,15 @@ exports.login = async function (req, res) {
     req.session.user = {
       _id: new ObjectID('5c84a8f313bdba182448c0ab'),
       username: 'testuser',
-      displayName: 'John Doe'
+      displayName: 'John Doe',
+      authToken: generateJWT('testuser', new ObjectID('5c84a8f313bdba182448c0ab'))
     };
     return res.send(req.session.user);
   }
 
   const config = {
     host: process.env.LDAP_HOST,
-    port: process.env.LDAP_POST,
+    port: process.env.LDAP_PORT,
     url: process.env.LDAP_URL,
     baseDN: process.env.LDAP_BASEDN,
     username: process.env.LDAP_USERNAME,
@@ -46,38 +52,55 @@ exports.login = async function (req, res) {
 
   const activeDirectory = new ActiveDirectory(config);
   activeDirectory.authenticate(username, password, async (err, result) => {
+    console.log('Authenticate result:', result);
     if (err) {
       console.log(chalk.black.bgRed('Error in authentication.'));
       return res.sendStatus(401);
-    } else {
-      if (result) {
-        activeDirectory.findUser(username, async (err, userProfile) => {
-          try {
-            console.log('Authentication successful!');
+    } else if (result) {
+      activeDirectory.findUser(username, async (err, userProfile) => {
+        if (err) {
+          console.log('Error logging in:', err);
+          return res.status(403).send({
+            message: 'Error logging in'
+          });
+        }
+        if (!userProfile) {
+          console.log('No user found!');
+          return res.status(403).send({
+            message: 'No user found in LDAP'
+          });
+        }
+        try {
+          console.log('Authentication successful!');
+          console.log('User profile:', userProfile);
 
-            let user = await checkForUser(username);
-            if (!user) {
-              user = await addUser({
-                username: username,
-                displayName: userProfile.displayName
-              });
-            }
-            req.session.user = user;
-            return res.send(user);
-
-          } catch (e) {
-            console.log('Error checking for user:', e);
-            res.status(500).send({
-              message: 'Error checking for user.'
-            })
+          let user = await checkForUser(username);
+          if (!user) {
+            console.log('User does not exist');
+            console.log('Adding user...');
+            user = await addUser({
+              username: username,
+              displayName: userProfile.displayName
+            });
           }
-        });
-      }
+          
+          user.authToken = generateJWT(username, user._id);
+          req.session.user = user;
+          return res.send(user);
+
+        } catch (e) {
+          console.log('Error checking for user in DB:', e);
+          res.status(500).send({
+            message: 'Error checking for user in DB.'
+          })
+        }
+      });
     }
   });
 };
 
 async function checkForUser(username, userID = null) {
+  console.log('Checking for user...');
   return new Promise((resolve, reject) => {
     const query = {};
     query.username = username;
@@ -102,16 +125,71 @@ async function addUser(user) {
   }
 }
 
-function generateJWT() {
+function generateJWT(username, id) {
   const today = new Date();
   const expirationDate = new Date(today);
   expirationDate.setDate(today.getDate() + 60);
 
+  var signOptions = {
+    issuer: process.env.AUTH_TOKEN_ISSUER,
+    subject: username,
+    audience: process.env.AUTH_TOKEN_AUDIENCE,
+    algorithm: 'RS256'
+  };
+
   return jwt.sign({
-    email: this.email,
-    id: this._id,
+    username: username,
+    id: id,
     exp: parseInt(expirationDate.getTime() / 1000, 10),
-  }, process.env.AUTH_SECRET);
+  }, privateKey, signOptions);
+}
+
+/**
+ * * verify(req, res)
+ * * Validates the user's session is valid and
+ * * that the user exists in the user database
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.verify = function (req, res) {
+  const authToken = req.body.token;
+  if (req.session.user.authToken === authToken) {
+    User.findById(req.session.user._id).exec((err, result) => {
+      if (err) { res.status(401).send(err) }
+      return res.status(200).send(!!result);
+    });
+  } else {
+    console.log(chalk.red('Auth token invalid!'));
+    return res.status(401).send({
+      message: 'Auth token invalid'
+    });
+  }
+}
+
+/**
+ * * isAuthor(req, res)
+ * * Checks whether user is authorized to edit a specific idea
+ * @param {object} req Middleware request object
+ * @param {object} res Middleware response object
+ * @return {void} responds with success boolean
+ */
+exports.isAuthor = function (req, res) {
+  const idea = req.body.idea;
+  const userSession = req.session.user;
+  const requestToken = req.headers.authorization.split(' ')[1];
+
+  if (!userSession || userSession.authToken !== requestToken) {
+    return res.status(401).send({
+      message: 'Non-authenticated user'
+    });
+  }
+
+  if (userSession._id.toString() === idea.author._id.toString()) {
+    return res.status(200).send(true);
+  } else {
+    return res.status(200).send(false);
+  }
 }
 
 /**
@@ -180,14 +258,35 @@ exports.logout = function (req, res) {
 };
 
 /**
- * * checkLogin(req, res)
+ * * isAuthenticated(req, res)
  * * Validates that server session exists for the requesting client
  * @param {object} req Middleware request object
  * @param {object} res Middleware response object
  * @return {void} responds with true if session exists
  */
-exports.checkLogin = function (req, res) {
-  console.log('Checking User Session...');
-  console.log(req.session.user);
-  res.send(req.session.user ? req.session.user : false);
+exports.isAuthenticated = function (req, res, next) {
+  const token = req.headers.authorization.split(' ')[1];
+  const userSession = req.session.user;
+
+  if (!userSession) {
+    return res.status(401).send({
+      message: 'No logged in user'
+    });
+  }
+
+  var verifyOptions = {
+    issuer: process.env.AUTH_TOKEN_ISSUER,
+    subject: userSession.username,
+    audience: process.env.AUTH_TOKEN_AUDIENCE,
+    algorithm: 'RS256'
+  };
+
+  const tokenData = jwt.verify(token, publicKey, verifyOptions);
+  if (userSession._id === tokenData.id) {
+    next();
+  } else {
+    res.status(401).send({
+      message: 'Invalid token'
+    })
+  }
 };
